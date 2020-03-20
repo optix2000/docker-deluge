@@ -1,0 +1,3 @@
+FROM optix2000/deluge-base:debian
+ENTRYPOINT ["/usr/bin/deluged", "--do-not-daemonize", "--config", "/config"]
+CMD ["--loglevel", "warning"]
