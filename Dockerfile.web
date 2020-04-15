@@ -1,3 +1,4 @@
-FROM optix2000/deluge-base
+ARG BASE_TAG=latest
+FROM optix2000/deluge:$BASE_TAG
 ENTRYPOINT ["/usr/bin/deluge-web", "--do-not-daemonize", "--config", "/config"]
 CMD ["--loglevel", "warning"]

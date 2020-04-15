@@ -1,3 +1,0 @@
-FROM optix2000/deluge-base:debian
-ENTRYPOINT ["/usr/bin/deluge-web", "--do-not-daemonize", "--config", "/config"]
-CMD ["--loglevel", "warning"]
