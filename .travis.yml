@@ -1,0 +1,9 @@
+language: ruby
+
+services:
+  - docker
+
+script:
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - make
+  - if [ "${TRAVIS_EVENT_TYPE}" = "cron" ]; then make upload; fi
