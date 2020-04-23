@@ -16,7 +16,5 @@ debian:
 	./tag.sh optix2000/deluge-web:debian
 
 upload:
-	docker push optix2000/deluge:latest
-	docker push optix2000/deluge:debian
-	docker push optix2000/deluge-web:latest
-	docker push optix2000/deluge-web:debian
+	docker push optix2000/deluge
+	docker push optix2000/deluge-web
