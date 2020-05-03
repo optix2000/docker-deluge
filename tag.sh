@@ -7,4 +7,4 @@ if [ $SUFFIX = '-latest' ]; then
   SUFFIX=''
 fi;
 docker tag $1 $TAG:$VERSION$SUFFIX
-docker tag $1 $TAG:$VERSION-$DATE$SUFFIX
+docker tag $1 $TAG:$VERSION$SUFFIX-$DATE
