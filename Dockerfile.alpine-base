@@ -1,4 +1,4 @@
-FROM alpine:3.11
+FROM alpine:3
 
 # Need edge/main for libboost and py3-wheel.
 # Need edge/testing for deluge
