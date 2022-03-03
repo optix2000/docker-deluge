@@ -1,4 +1,4 @@
-# [docker-deluge](https://hub.docker.com/r/optix2000/deluge) [![Build Status](https://travis-ci.org/optix2000/docker-deluge.svg?branch=master)](https://travis-ci.org/optix2000/docker-deluge)
+# [docker-deluge](https://hub.docker.com/r/optix2000/deluge) ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/optix2000/docker-deluge/Build)
 
 No frills Alpine and Debian based Deluge 2.x containers built for Kubernetes.
 
