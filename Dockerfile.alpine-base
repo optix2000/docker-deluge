@@ -1,6 +1,4 @@
 FROM alpine:3
 
-# Need edge/main for libboost and py3-wheel.
-# Need edge/testing for deluge
-RUN apk add -X http://dl-cdn.alpinelinux.org/alpine/edge/main -X http://dl-cdn.alpinelinux.org/alpine/edge/testing deluge
+RUN apk add deluge
 VOLUME ["/config"]
