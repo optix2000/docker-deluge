@@ -1,4 +1,12 @@
 FROM alpine:3
+ADD https://mailfud.org/geoip-legacy/GeoIP.dat.gz /tmp/
+ADD https://mailfud.org/geoip-legacy/GeoIPv6.dat.gz /tmp/
+RUN gzip -d /tmp/*.gz
 
-RUN apk add deluge
+FROM alpine:edge
+
+RUN apk add --no-cache deluge
+RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing py3-geoip
+COPY --from=0 /tmp/GeoIP.dat /usr/share/GeoIP/
+COPY --from=0 /tmp/GeoIPv6.dat /usr/share/GeoIP/
 VOLUME ["/config"]
