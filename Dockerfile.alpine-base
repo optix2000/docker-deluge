@@ -2,6 +2,7 @@ FROM alpine:3
 ADD https://mailfud.org/geoip-legacy/GeoIP.dat.gz /tmp/
 ADD https://mailfud.org/geoip-legacy/GeoIPv6.dat.gz /tmp/
 RUN gzip -d /tmp/*.gz
+RUN chmod 644 /tmp/*
 
 FROM alpine:edge
 
