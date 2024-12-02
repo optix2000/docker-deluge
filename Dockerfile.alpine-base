@@ -7,7 +7,13 @@ RUN chmod 644 /tmp/*
 FROM alpine:edge
 
 RUN apk add --no-cache deluge
+# py3-geoip only exists in testing
 RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing py3-geoip
 COPY --from=0 /tmp/GeoIP.dat /usr/share/GeoIP/
 COPY --from=0 /tmp/GeoIPv6.dat /usr/share/GeoIP/
 VOLUME ["/config"]
+
+# To patch in IPv6 support
+RUN apk add --no-cache patch
+COPY 0001-geoip-for-ipv6.patch /tmp/
+RUN patch -i /tmp/0001-geoip-for-ipv6.patch -p1 -d /usr/lib/*/site-packages/
