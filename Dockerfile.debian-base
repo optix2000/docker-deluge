@@ -1,4 +1,6 @@
 FROM debian:trixie
 
-RUN apt-get update && apt-get install -y deluged deluge-web geoip-database
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends deluged deluge-web geoip-database \
+    && rm -rf /var/lib/apt/lists/*
 VOLUME ["/config"]
