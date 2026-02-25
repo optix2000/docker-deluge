@@ -1,8 +1,36 @@
 diff --git a/deluge/pluginmanagerbase.py b/deluge/pluginmanagerbase.py
-index 77985715d..935aaa4fb 100644
+index 77985715d..8178cd8c8 100644
 --- a/deluge/pluginmanagerbase.py
 +++ b/deluge/pluginmanagerbase.py
-@@ -92,6 +92,45 @@ def get_enabled_plugins(self):
+@@ -12,6 +12,7 @@
+ import email
+ import logging
+ import os
++import re
+ import sys
+ from importlib.metadata import Distribution
+ 
+@@ -24,6 +25,19 @@
+ 
+ log = logging.getLogger(__name__)
+ 
++LEGACY_DIST_NAME = re.compile(
++    r"""
++    (?P<name>[^-]+) (
++        -(?P<ver>[^-]+) (
++            -py(?P<pyver>[^-]+) (
++                -(?P<plat>.+)
++            )?
++        )?
++    )?
++    """,
++    re.VERBOSE | re.IGNORECASE,
++).match
++
+ METADATA_KEYS = [
+     'Name',
+     'License',
+@@ -92,6 +106,105 @@ def get_enabled_plugins(self):
          """Returns a list of enabled plugins"""
          return list(self.plugins)
  
@@ -11,14 +39,74 @@ index 77985715d..935aaa4fb 100644
 +        if path not in sys.path:
 +            sys.path.insert(0, path)
 +
++    @staticmethod
++    def _path_text(path):
++        try:
++            return os.fspath(path)
++        except TypeError:
++            return str(path)
++
++    @staticmethod
++    def _distribution_location(dist, fallback=''):
++        try:
++            return PluginManagerBase._path_text(dist.locate_file('')).rstrip('/\\')
++        except Exception:
++            return fallback
++
++    @staticmethod
++    def _safe_name(name):
++        return re.sub('[^A-Za-z0-9.]+', '-', name)
++
++    def _distribution_name(self, dist, metadata, fallback=''):
++        metadata_path = self._path_text(getattr(dist, '_path', '')).rstrip('/\\')
++        metadata_basename = os.path.basename(metadata_path)
++        metadata_basename_lower = metadata_basename.lower()
++
++        if metadata_basename_lower.endswith(('.egg-info', '.dist-info')):
++            basename = metadata_basename
++        elif metadata_basename_lower == 'egg-info':
++            basename = os.path.basename(os.path.dirname(metadata_path))
++        else:
++            basename = os.path.basename(
++                self._distribution_location(dist, fallback).rstrip('/\\')
++            )
++
++        basename_root, ext = os.path.splitext(basename)
++        if ext.lower() in ('.egg', '.egg-info', '.dist-info'):
++            match = LEGACY_DIST_NAME(basename_root)
++            if match and match.group('name'):
++                return self._safe_name(match.group('name'))
++
++        metadata_name = metadata.get('Name')
++        if metadata_name:
++            return self._safe_name(metadata_name)
++        return None
++
 +    def _register_distribution(self, dist, location):
-+        name = dist.metadata.get('Name')
-+        if not name or name in self._plugin_dists:
++        try:
++            metadata = dist.metadata
++            name = self._distribution_name(dist, metadata, location)
++        except Exception as ex:
++            log.warning('Skipping invalid plugin metadata in %s: %s', location, ex)
 +            return
 +
-+        self._plugin_dists[name] = dist
++        version = (metadata.get('Version') or '').strip()
++
++        if not name or not version:
++            return
++
++        key = name.lower()
++        if key in self._plugin_dists:
++            return
++
++        self._plugin_dists[key] = dist
 +        self.available_plugins.append(name)
-+        log.debug('Found plugin: %s %s at %s', name, dist.version, location)
++        log.debug(
++            'Found plugin: %s %s at %s',
++            name,
++            version,
++            self._distribution_location(dist, location),
++        )
 +
 +    def _register_distributions_from_path(self, path):
 +        try:
@@ -48,7 +136,7 @@ index 77985715d..935aaa4fb 100644
      def scan_for_plugins(self):
          """Scans for available plugins"""
          base_dir = deluge.common.resource_filename('deluge', 'plugins')
-@@ -109,34 +148,27 @@ def scan_for_plugins(self):
+@@ -109,34 +222,27 @@ def scan_for_plugins(self):
          for plugin_dir in plugin_dirs:
              if not os.path.isdir(plugin_dir):
                  continue
@@ -94,10 +182,37 @@ index 77985715d..935aaa4fb 100644
 +                elif item.endswith('.egg') and os.path.exists(item_path):
 +                    self._add_path_entry(item_path)
 +                    self._register_distributions_from_path(item_path)
-+                elif item.endswith(('.egg-info', '.dist-info')) and os.path.isdir(
-+                    item_path
-+                ):
++                elif item.endswith('.egg-info') and os.path.exists(item_path):
++                    self._register_distribution(Distribution.at(item_path), plugin_dir)
++                elif item.endswith('.dist-info') and os.path.isdir(item_path):
 +                    self._register_distribution(Distribution.at(item_path), plugin_dir)
  
      def enable_plugin(self, plugin_name):
          """Enable a plugin.
+@@ -158,7 +264,7 @@ def enable_plugin(self, plugin_name):
+             return defer.succeed(True)
+ 
+         plugin_name = plugin_name.replace(' ', '-')
+-        dist = self._plugin_dists[plugin_name]
++        dist = self._plugin_dists[plugin_name.lower()]
+         return_d = defer.succeed(True)
+ 
+         entry_points = [ep for ep in dist.entry_points if ep.group == self.entry_name]
+@@ -277,10 +383,13 @@ def get_plugin_info(self, name):
+         """Returns a dictionary of plugin info from the metadata"""
+ 
+         if name not in self._plugin_dists:
+-            log.warning('Failed to retrieve info for plugin: %s', name)
+-            info = {}.fromkeys(METADATA_KEYS, '')
+-            info['Name'] = info['Version'] = 'not available'
+-            return info
++            if name.lower() in self._plugin_dists:
++                name = name.lower()
++            else:
++                log.warning('Failed to retrieve info for plugin: %s', name)
++                info = {}.fromkeys(METADATA_KEYS, '')
++                info['Name'] = info['Version'] = 'not available'
++                return info
+ 
+         metadata = self._plugin_dists[name].metadata
+         return {key: metadata.get(key, '') for key in METADATA_KEYS}
