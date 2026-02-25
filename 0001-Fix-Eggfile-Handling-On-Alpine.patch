@@ -1,0 +1,103 @@
+diff --git a/deluge/pluginmanagerbase.py b/deluge/pluginmanagerbase.py
+index 77985715d..935aaa4fb 100644
+--- a/deluge/pluginmanagerbase.py
++++ b/deluge/pluginmanagerbase.py
+@@ -92,6 +92,45 @@ def get_enabled_plugins(self):
+         """Returns a list of enabled plugins"""
+         return list(self.plugins)
+ 
++    @staticmethod
++    def _add_path_entry(path):
++        if path not in sys.path:
++            sys.path.insert(0, path)
++
++    def _register_distribution(self, dist, location):
++        name = dist.metadata.get('Name')
++        if not name or name in self._plugin_dists:
++            return
++
++        self._plugin_dists[name] = dist
++        self.available_plugins.append(name)
++        log.debug('Found plugin: %s %s at %s', name, dist.version, location)
++
++    def _register_distributions_from_path(self, path):
++        try:
++            dists = Distribution.discover(path=[path])
++        except Exception as ex:
++            log.warning('Failed to discover plugin metadata in %s: %s', path, ex)
++            return
++
++        for dist in dists:
++            self._register_distribution(dist, path)
++
++    @staticmethod
++    def _get_egg_link_path(path):
++        try:
++            with open(path, encoding='utf8') as egg_link:
++                for line in egg_link:
++                    line = line.strip()
++                    if not line:
++                        continue
++                    if os.path.isabs(line):
++                        return line
++                    return os.path.abspath(os.path.join(os.path.dirname(path), line))
++        except OSError as ex:
++            log.warning('Unable to read egg-link %s: %s', path, ex)
++        return None
++
+     def scan_for_plugins(self):
+         """Scans for available plugins"""
+         base_dir = deluge.common.resource_filename('deluge', 'plugins')
+@@ -109,34 +148,27 @@ def scan_for_plugins(self):
+         for plugin_dir in plugin_dirs:
+             if not os.path.isdir(plugin_dir):
+                 continue
+-            if plugin_dir not in sys.path:
+-                sys.path.insert(0, plugin_dir)
++            self._add_path_entry(plugin_dir)
+ 
+             for item in os.listdir(plugin_dir):
+                 item_path = os.path.join(plugin_dir, item)
+-                dist = None
+-
+-                if item.endswith('.egg') and os.path.isdir(item_path):
+-                    # Add .egg directory to sys.path for imports
+-                    if item_path not in sys.path:
+-                        sys.path.insert(0, item_path)
+-                    egg_info = os.path.join(item_path, 'EGG-INFO')
+-                    if os.path.isdir(egg_info):
+-                        dist = Distribution.at(egg_info)
+-                elif item.endswith(('.egg-info', '.dist-info')) and os.path.isdir(item_path):
+-                    dist = Distribution.at(item_path)
+-
+-                if dist:
+-                    name = dist.metadata['Name']
+-                    if name not in self._plugin_dists:
+-                        self._plugin_dists[name] = dist
+-                        self.available_plugins.append(name)
+-                        log.debug(
+-                            'Found plugin: %s %s at %s',
+-                            name,
+-                            dist.version,
+-                            plugin_dir,
+-                        )
++
++                if item.endswith('.egg-link') and os.path.isfile(item_path):
++                    linked_path = self._get_egg_link_path(item_path)
++                    if linked_path is None:
++                        continue
++                    if not os.path.exists(linked_path):
++                        log.warning('Skipping missing egg-link path: %s', linked_path)
++                        continue
++                    self._add_path_entry(linked_path)
++                    self._register_distributions_from_path(linked_path)
++                elif item.endswith('.egg') and os.path.exists(item_path):
++                    self._add_path_entry(item_path)
++                    self._register_distributions_from_path(item_path)
++                elif item.endswith(('.egg-info', '.dist-info')) and os.path.isdir(
++                    item_path
++                ):
++                    self._register_distribution(Distribution.at(item_path), plugin_dir)
+ 
+     def enable_plugin(self, plugin_name):
+         """Enable a plugin.

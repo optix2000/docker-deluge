@@ -13,7 +13,14 @@ COPY --from=0 /tmp/GeoIP.dat /usr/share/GeoIP/
 COPY --from=0 /tmp/GeoIPv6.dat /usr/share/GeoIP/
 VOLUME ["/config"]
 
-# To patch in IPv6 support
+# Custom patches
 RUN apk add --no-cache patch
-COPY 0001-geoip-for-ipv6.patch /tmp/
-RUN patch -i /tmp/0001-geoip-for-ipv6.patch -p1 -d /usr/lib/*/site-packages/
+# To patch in IPv6 support
+COPY 0001-Fix-GeoIP-For-IPv6.patch /tmp/
+RUN patch -i /tmp/0001-Fix-GeoIP-For-IPv6.patch -p1 -d /usr/lib/*/site-packages/
+
+# Fix .egg support in alpine
+COPY 0001-Fix-Eggfile-Handling-On-Alpine.patch /tmp/
+RUN patch -i /tmp/0001-Fix-Eggfile-Handling-On-Alpine.patch -p1 -d /usr/lib/*/site-packages/
+
+RUN rm /tmp/*.patch
