@@ -1,0 +1,33 @@
+diff --git a/deluge/transfer.py b/deluge/transfer.py
+index 896f1c813..309c9cfde 100644
+--- a/deluge/transfer.py
++++ b/deluge/transfer.py
+@@ -78,7 +78,8 @@ def dataReceived(self, data):  # NOQA: N802
+ 
+         while len(self._buffer) >= MESSAGE_HEADER_SIZE:
+             if self._message_length == 0:
+-                self._handle_new_message()
++                if not self._handle_new_message():
++                    return
+             # We have a complete packet
+             if len(self._buffer) >= self._message_length:
+                 self._handle_complete_message(self._buffer[: self._message_length])
+@@ -107,6 +108,7 @@ def _handle_new_message(self):
+                 )
+             # Remove the header from the buffer
+             self._buffer = self._buffer[MESSAGE_HEADER_SIZE:]
++            return True
+         except Exception as ex:
+             log.warning('Error occurred when parsing message header: %s.', ex)
+             log.warning(
+@@ -114,6 +116,10 @@ def _handle_new_message(self):
+             )
+             self._message_length = 0
+             self._buffer = b''
++            lose_connection = getattr(self.transport, 'loseConnection', None)
++            if lose_connection:
++                lose_connection()
++            return False
+ 
+     def _handle_complete_message(self, data):
+         """

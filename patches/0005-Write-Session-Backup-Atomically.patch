@@ -1,0 +1,23 @@
+diff --git a/deluge/core/core.py b/deluge/core/core.py
+index 7bf119ae5..b4536f678 100644
+--- a/deluge/core/core.py
++++ b/deluge/core/core.py
+@@ -291,13 +291,17 @@ def _save_session_state(self):
+         filename = 'session.state'
+         filepath = get_config_dir(filename)
+         filepath_bak = filepath + '.bak'
++        filepath_bak_tmp = filepath_bak + '.tmp'
+         filepath_tmp = filepath + '.tmp'
+ 
+         try:
+             if os.path.isfile(filepath):
+                 log.debug('Creating backup of %s at: %s', filename, filepath_bak)
+-                shutil.copy2(filepath, filepath_bak)
++                shutil.copy2(filepath, filepath_bak_tmp)
++                os.replace(filepath_bak_tmp, filepath_bak)
+         except OSError as ex:
++            if os.path.isfile(filepath_bak_tmp):
++                os.remove(filepath_bak_tmp)
+             log.error('Unable to backup %s to %s: %s', filepath, filepath_bak, ex)
+         else:
+             log.info('Saving the %s at: %s', filename, filepath)

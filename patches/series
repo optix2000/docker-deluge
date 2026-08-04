@@ -1,0 +1,5 @@
+0001-Fix-Eggfile-Handling-On-Alpine.patch
+0002-Fix-GeoIP-For-IPv6.patch
+0003-Fix-Alert-Poller-Pause-Deadlock.patch
+0004-Reject-Invalid-Protocol-Headers.patch
+0005-Write-Session-Backup-Atomically.patch

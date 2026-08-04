@@ -1,26 +1,36 @@
-FROM alpine:3
+ARG ALPINE_VERSION=3.24
+ARG GEOIP_PYTHON_VERSION=1.3.2
+ARG SETUPTOOLS_COMPAT_VERSION=80.9.0
+
+FROM alpine:${ALPINE_VERSION} AS geoip-data
 ADD https://mailfud.org/geoip-legacy/GeoIP.dat.gz /tmp/
 ADD https://mailfud.org/geoip-legacy/GeoIPv6.dat.gz /tmp/
 RUN gzip -d /tmp/*.gz
 RUN chmod 644 /tmp/*
 
-FROM alpine:edge
+FROM alpine:${ALPINE_VERSION} AS python-compat
+ARG GEOIP_PYTHON_VERSION
+ARG SETUPTOOLS_COMPAT_VERSION
+RUN apk add --no-cache build-base geoip-dev py3-pip python3-dev
+RUN python3 -m pip install --no-cache-dir --target=/opt/python-compat \
+    "GeoIP==${GEOIP_PYTHON_VERSION}" \
+    "setuptools==${SETUPTOOLS_COMPAT_VERSION}"
 
-RUN apk add --no-cache deluge
-# py3-geoip only exists in testing
-RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/testing py3-geoip
-COPY --from=0 /tmp/GeoIP.dat /usr/share/GeoIP/
-COPY --from=0 /tmp/GeoIPv6.dat /usr/share/GeoIP/
+FROM alpine:${ALPINE_VERSION}
+
+ENV PYTHONPATH=/opt/python-compat
+
+RUN apk add --no-cache deluge geoip
+COPY --from=python-compat /opt/python-compat /opt/python-compat
+COPY --from=geoip-data /tmp/GeoIP.dat /usr/share/GeoIP/
+COPY --from=geoip-data /tmp/GeoIPv6.dat /usr/share/GeoIP/
 VOLUME ["/config"]
 
-# Custom patches
-RUN apk add --no-cache patch
-# To patch in IPv6 support
-COPY 0001-Fix-GeoIP-For-IPv6.patch /tmp/
-RUN patch -i /tmp/0001-Fix-GeoIP-For-IPv6.patch -p1 -d /usr/lib/*/site-packages/
-
-# Fix .egg support in alpine
-COPY 0001-Fix-Eggfile-Handling-On-Alpine.patch /tmp/
-RUN patch -i /tmp/0001-Fix-Eggfile-Handling-On-Alpine.patch -p1 -d /usr/lib/*/site-packages/
-
-RUN rm /tmp/*.patch
+# Apply the ordered Deluge patch series, then remove build-only tooling.
+COPY patches /tmp/patches
+RUN apk add --no-cache --virtual .patch-deps patch \
+    && while read -r patch_file; do \
+        patch -i "/tmp/patches/${patch_file}" -p1 -d /usr/lib/*/site-packages/; \
+    done < /tmp/patches/series \
+    && apk del .patch-deps \
+    && rm -rf /tmp/patches
